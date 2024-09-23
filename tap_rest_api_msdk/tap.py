@@ -54,6 +54,13 @@ class TapRestApiMsdk(Tap):
             "level params overwriting top-level params with the same key.",
         ),
         th.Property(
+            "rest_method",
+            th.StringType,
+            required=False,
+            description="The HTTP request method. Only `GET` and `POST` are supported. "
+            "Defaults to `GET`. ",
+        ),
+        th.Property(
             "records_path",
             th.StringType,
             required=False,
@@ -449,6 +456,9 @@ class TapRestApiMsdk(Tap):
             records_path = stream.get(
                 "records_path", self.config.get("records_path", "$[*]")
             )
+            rest_method = stream.get(
+                "rest_method", self.config.get("rest_method", "GET")
+            )
             except_keys = stream.get("except_keys", self.config.get("except_keys", []))
             path = stream.get("path", self.config.get("path", ""))
             params = {**self.config.get("params", {}), **stream.get("params", {})}
@@ -480,6 +490,7 @@ class TapRestApiMsdk(Tap):
             else:
                 self.logger.info("No schema found. Inferring schema from API call.")
                 schema = self.get_schema(
+                    rest_method,
                     records_path,
                     except_keys,
                     stream.get(
@@ -497,6 +508,7 @@ class TapRestApiMsdk(Tap):
                     name=stream["name"],
                     path=path,
                     params=params,
+                    rest_method=rest_method,
                     headers=headers,
                     records_path=records_path,
                     primary_keys=stream.get(
@@ -543,6 +555,7 @@ class TapRestApiMsdk(Tap):
 
     def get_schema(
         self,
+        rest_method: str,
         records_path: str,
         except_keys: list,
         inference_records: int,
@@ -592,12 +605,31 @@ class TapRestApiMsdk(Tap):
             headers.update(getattr(self._authenticator, "auth_headers", {}))
             params.update(getattr(self._authenticator, "auth_params", {}))
 
-        r = requests.get(
-            self.config["api_url"] + path,
-            auth=self.http_auth,
-            params=params,
-            headers=headers,
-        )
+        use_request_body_not_params = self.config.get("use_request_body_not_params")
+
+        if rest_method == "POST":
+            if use_request_body_not_params is not None and use_request_body_not_params:
+                r = requests.post(
+                    self.config["api_url"] + path,
+                    auth=self.http_auth,
+                    data=params,
+                    headers=headers,
+                )
+            else:
+                r = requests.post(
+                    self.config["api_url"] + path,
+                    auth=self.http_auth,
+                    params=params,
+                    headers=headers,
+                )
+        else:
+            r = requests.get(
+                self.config["api_url"] + path,
+                auth=self.http_auth,
+                params=params,
+                headers=headers,
+            )
+
         if r.ok:
             records = extract_jsonpath(records_path, input=r.json())
         else:

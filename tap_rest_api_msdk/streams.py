@@ -50,6 +50,7 @@ class DynamicStream(RestApiStream):
         path: str,
         params: Optional[dict] = None,
         headers: Optional[dict] = None,
+        rest_method: str = "GET",
         primary_keys: Optional[list] = None,
         replication_key: Optional[str] = None,
         except_keys: Optional[list] = None,
@@ -81,6 +82,7 @@ class DynamicStream(RestApiStream):
             path: see tap.py
             params: see tap.py
             headers: see tap.py
+            rest_method: see tap.py
             primary_keys: see tap.py
             replication_key: see tap.py
             except_keys: see tap.py
@@ -121,6 +123,7 @@ class DynamicStream(RestApiStream):
         self.replication_key = replication_key
         self.except_keys = except_keys
         self.records_path = records_path
+        RestApiStream.rest_method = rest_method
 
         if next_page_token_path:
             self.next_page_token_jsonpath = next_page_token_path
@@ -151,9 +154,10 @@ class DynamicStream(RestApiStream):
         self.backoff_time_extension = backoff_time_extension
         self.store_raw_json_message = store_raw_json_message
         if self.use_request_body_not_params:
-            self.prepare_request_payload = get_url_params_styles.get(  # type: ignore
+            params = get_url_params_styles.get(  # type: ignore
                 pagination_response_style, self._get_url_params_page_style
             )  # Defaults to page_style url_params
+            self.prepare_request_payload = self._get_values_as_type  # type: ignore
         else:
             self.get_url_params = get_url_params_styles.get(  # type: ignore
                 pagination_response_style, self._get_url_params_page_style
@@ -339,6 +343,32 @@ class DynamicStream(RestApiStream):
                 f"Unknown paginator {self.pagination_request_style}. Please declare "
                 f"a valid paginator."
             )
+
+    def _get_values_as_type(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Any:
+        params = {}
+        if self.params:
+            for k, v in self.params.items():
+                param = self.params[k]
+
+                if isinstance(param, dict):
+                    param_type = param["type"]
+                    param_value = param["value"]
+
+                    if isinstance(param_type, str):
+                        lowercase_param_type = str(param_type).lower()
+
+                        if (
+                            lowercase_param_type == "array"
+                            or lowercase_param_type == "object"
+                        ):
+                            params[k] = json.loads(param_value)
+                            continue
+
+                params[k] = v
+
+        return params
 
     def _get_url_params_page_style(
         self, context: Optional[dict], next_page_token: Optional[Any]

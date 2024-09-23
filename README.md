@@ -76,6 +76,8 @@ plugins:
           kind: object
         - name: headers
           kind: object
+        - name: rest_method
+          kind: string
         - name: records_path
           kind: string
         - name: primary_keys
@@ -163,6 +165,7 @@ provided at the top-level will be the default values for each stream.:
 - `path`: optional: see stream-level params below.
 - `params`: optional: see stream-level params below.
 - `headers`: optional: see stream-level params below.
+- `rest_method`: optional: The HTTP request method. Only `GET` and `POST` are supported. Defaults to `GET`.
 - `records_path`: optional: see stream-level params below.
 - `primary_keys`: optional: see stream-level params below.
 - `replication_key`: optional: see stream-level params below.
@@ -192,9 +195,11 @@ Parameters that appear at the stream-level
 will overwrite their top-level counterparts except where noted below:
 - `name`: required: name of the stream.
 - `path`: optional: the path appended to the `api_url`.
-- `params`: optional: an object of objects that provide the `params` in a `requests.get` method.
+- `params`: optional: an object of objects that provide the `params` in a `requests.get` or `requests.post` method.
   Stream level params will be merged with top-level params with stream level params overwriting
-  top-level params with the same key.
+  top-level params with the same key. An object with properties "type" and "value" can handle casting the value to
+  the type specified before a request is sent. The "type" property is a string and the supported types are: "array"
+  and "object". This is useful if the params are set from environment variables.
 - `headers`: optional: an object of headers to pass into the api calls. Stream level
   headers will be merged with top-level params with stream level params overwriting
   top-level params with the same key

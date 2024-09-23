@@ -48,6 +48,8 @@ plugins:
           kind: object
         - name: headers
           kind: object
+        - name: http_request_method
+          kind: string
         - name: records_path
           kind: string
         - name: primary_keys
@@ -109,7 +111,7 @@ plugins:
               - id
             num_inference_records: 100
       select:
-        - '*.*'
+        - "*.*"
   loaders:
     - name: target-jsonl
       variant: andyh1203
