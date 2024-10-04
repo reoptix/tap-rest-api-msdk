@@ -344,6 +344,16 @@ class DynamicStream(RestApiStream):
                 f"a valid paginator."
             )
 
+    def _append_prefix_suffix(self, values: dict, prefix: str, suffix: str) -> dict:
+        updated_values = []
+        for value in values:
+            if isinstance(value, str):
+              updated_values.append(f"{prefix}{value}{suffix}")
+            else:
+              updated_values.append(value)
+
+        return updated_values
+
     def _get_values_as_type(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Any:
@@ -353,16 +363,25 @@ class DynamicStream(RestApiStream):
                 param = self.params[k]
 
                 if isinstance(param, dict):
-                    param_type = param["type"]
-                    param_value = param["value"]
+                    param_type = param.get("type", None)
+                    param_value = param.get("value", None)
+                    item_prefix = param.get("item_prefix", None)
+                    item_suffix = param.get("item_suffix", None)
 
-                    if isinstance(param_type, str):
+                    if isinstance(param_type, str) and param_type and param_value:
                         lowercase_param_type = str(param_type).lower()
 
-                        if (
-                            lowercase_param_type == "array"
-                            or lowercase_param_type == "object"
-                        ):
+                        if lowercase_param_type == "array":
+                            deserialized_value = json.loads(param_value)
+                            if item_prefix or item_suffix:
+                                params[k] = self._append_prefix_suffix(
+                                    deserialized_value, item_prefix, item_suffix
+                                )
+                            else:
+                                params[k] = deserialized_value
+                            continue
+
+                        if lowercase_param_type == "object":
                             params[k] = json.loads(param_value)
                             continue
 
